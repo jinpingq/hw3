@@ -86,7 +86,7 @@ public class IDMAuthenticationManager
                 new MapSqlParameterSource()
                         .addValue("email", email, java.sql.Types.VARCHAR)
                         .addValue("user_status_id", 1, java.sql.Types.INTEGER)
-                        .addValue("salt", base64EncodedHashedPassword, java.sql.Types.VARCHAR)
+                        .addValue("salt", base64EncodedHashedSalt, java.sql.Types.VARCHAR)
                         .addValue("hashed_password", base64EncodedHashedPassword, java.sql.Types.VARCHAR);
         try {
             int rowsUpdated = this.repo.getTemplate().update(sql, source);
