@@ -1,9 +1,12 @@
 package com.github.klefstad_teaching.cs122b.idm.component;
 
+import com.github.klefstad_teaching.cs122b.core.error.ResultError;
+import com.github.klefstad_teaching.cs122b.core.result.IDMResults;
 import com.github.klefstad_teaching.cs122b.idm.repo.IDMRepo;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.RefreshToken;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -68,10 +71,42 @@ public class IDMAuthenticationManager
 
     public void createAndInsertUser(String email, char[] password)
     {
+        byte[] salt = genSalt();
+        byte[] encodedPassword = hashPassword(password, salt);
+        String base64EncodedHashedPassword = Base64.getEncoder().encodeToString(encodedPassword);
+        String base64EncodedHashedSalt = Base64.getEncoder().encodeToString(salt);
+
+//        User aUser= new User();
+
+        String sql =
+                "INSERT INTO idm.user (email, user_status_id, salt, hashed_password)" +
+                "VALUES (:email, :user_status_id, :salt, :hashed_password);";
+
+        MapSqlParameterSource source =
+                new MapSqlParameterSource()
+                        .addValue("email", email, java.sql.Types.VARCHAR)
+                        .addValue("user_status_id", 1, java.sql.Types.INTEGER)
+                        .addValue("salt", base64EncodedHashedPassword, java.sql.Types.VARCHAR)
+                        .addValue("hashed_password", base64EncodedHashedPassword, java.sql.Types.VARCHAR);
+        try {
+            int rowsUpdated = this.repo.getTemplate().update(sql, source);
+        }catch (Exception e){
+            throw new ResultError(IDMResults.USER_ALREADY_EXISTS);
+        }
     }
 
     public void insertRefreshToken(RefreshToken refreshToken)
     {
+        this.repo.getTemplate().update(
+                "INSERT INTO idm.refresh_token (token, user_id, token_status_id, expire_time, max_life_time)" +
+                    "VALUE (:token, :userId, :tokenStatus, :expireTime, :maxLifeTime",
+                new MapSqlParameterSource()
+                        .addValue("token", refreshToken.getToken(), java.sql.Types.VARCHAR)
+                        .addValue("userId", refreshToken.getUserId(), java.sql.Types.INTEGER)
+                        .addValue("tokenStatus", refreshToken.getTokenStatus().id(), java.sql.Types.INTEGER)
+                        .addValue("expireTime", refreshToken.getExpireTime(), java.sql.Types.TIMESTAMP)
+                        .addValue("maxLifeTime", refreshToken.getMaxLifeTime(), java.sql.Types.TIMESTAMP)
+        );
     }
 
     public RefreshToken verifyRefreshToken(String token)

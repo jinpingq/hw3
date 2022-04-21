@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-public class IDMController
+public class    IDMController
 {
     private final IDMAuthenticationManager authManager;
     private final IDMJwtManager            jwtManager;
@@ -22,4 +22,8 @@ public class IDMController
         this.jwtManager = jwtManager;
         this.validate = validate;
     }
+
+    // Use getmapping for register endpoint
+    // call create and insert user function
+    // return success status
 }
