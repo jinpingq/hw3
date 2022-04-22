@@ -2,7 +2,9 @@ package com.github.klefstad_teaching.cs122b.idm.repo;
 
 import com.github.klefstad_teaching.cs122b.core.error.ResultError;
 import com.github.klefstad_teaching.cs122b.core.result.IDMResults;
+import com.github.klefstad_teaching.cs122b.idm.repo.entity.RefreshToken;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.User;
+import com.github.klefstad_teaching.cs122b.idm.repo.entity.type.TokenStatus;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.type.UserStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -11,7 +13,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.sql.Types;
-import java.util.List;
 
 @Component
 public class IDMRepo
@@ -24,52 +25,92 @@ public class IDMRepo
         this.template = template;
     }
     // do sql in workbench
-
-    public User insertUser(String email)
-    {
-        try {
-            // expect return only one row
-            User user = this.template.queryForObject(
-                    "SELECT id FROM idm.user WHERE email = :email;",
-                    new MapSqlParameterSource()
-                            .addValue("email", email, Types.VARCHAR),
-                    (rs, rowNum) ->
-                            new User()
-                                    .setId(rs.getInt("id"))
-                                    .setEmail(rs.getString("email"))
-                                    .setUserStatus(UserStatus.fromId(rs.getInt("user_status_id")))
-                                    .setSalt(rs.getString("salt"))
-                                    .setHashedPassword(rs.getString("hashed_password"))
-            );
-            // return a list
-            List<User> users = this.template.query(
-                    "SELECT id, email, user_status_id, salt, hashed_password" +
-                            "FROM idm.user WHERE email = :email;",
-                    new MapSqlParameterSource()
-                            .addValue("email", email, Types.VARCHAR),
-                    (rs, rowNum) ->
-                            new User()
-                                    .setId(rs.getInt("id"))
-                                    .setEmail(rs.getString("email"))
-                                    .setUserStatus(UserStatus.fromId(rs.getInt("user_status_id")))
-                                    .setSalt(rs.getString("salt"))
-                                    .setHashedPassword(rs.getString("hashed_password"))
-            );
-
-            // manipulate database
-            this.template.update(
-                    "INSERT INTO idm.user (email, user_status_id, hashed_password)" +
-                            "VALUES (:email, :user_status_id, :hashed_password)",
-                    new MapSqlParameterSource()
-                            .addValue("email", "some@uci.edu", Types.VARCHAR)
-                            .addValue("user_status_id", email, Types.INTEGER)
-            );
-        } catch (DataAccessException e) {
-            throw new ResultError(IDMResults.USER_NOT_FOUND);
-        }
-
-    }
     public NamedParameterJdbcTemplate getTemplate() {
         return template;
     }
+    public User searchByEmail(String email) {
+        try {
+            // expect return only one row
+            User user = this.template.queryForObject(
+                    "SELECT id, email, user_status_id, salt, hashed_password FROM idm.user WHERE email = :email;",
+                    new MapSqlParameterSource()
+                            .addValue("email", email, Types.VARCHAR),
+                    (rs, rowNum) ->
+                            new User()
+                                    .setId(rs.getInt("id"))
+                                    .setEmail(rs.getString("email"))
+                                    .setUserStatus(UserStatus.fromId(rs.getInt("user_status_id")))
+                                    .setSalt(rs.getString("salt"))
+                                    .setHashedPassword(rs.getString("hashed_password")));
+            return user;
+        } catch (DataAccessException e) {
+            throw new ResultError(IDMResults.USER_NOT_FOUND);
+        }
+    }
+    public RefreshToken searchByRereshToken(String refreshToken)
+    {
+        try {
+            // expect return only one row
+            RefreshToken token = this.template.queryForObject(
+                    "SELECT id, token, user_id, token_status_id, expire_time, max_life_time " +
+                            "FROM idm.refresh_token " +
+                            "WHERE token = :refreshToken;",
+                    new MapSqlParameterSource()
+                            .addValue("token", refreshToken, Types.INTEGER),
+                    (rs, rowNum) ->
+                            new RefreshToken()
+                                    .setToken(rs.getString("token"))
+                                    .setUserId(rs.getInt("user_id"))
+                                    .setTokenStatus(TokenStatus.fromId(rs.getInt("token_status_id")))
+                                    .setExpireTime(rs.getTimestamp("expire_time"))
+                                    .setMaxLifeTime(rs.getTimestamp("max_life_time")));
+            return token;
+        } catch (DataAccessException e) {
+            throw new ResultError(IDMResults.REFRESH_TOKEN_NOT_FOUND);}
+    }
+
+    public void insertUser(String email, Integer user_status_id, String salt, String hashed_password)
+    {
+        try {
+            // manipulate database
+            this.template.update(
+                    "INSERT INTO idm.user (email, user_status_id, salt, hashed_password)" +
+                            "VALUES (:email, :user_status_id, :salt, :hashed_password);",
+                    new MapSqlParameterSource()
+                            .addValue("email", email, Types.VARCHAR)
+                            .addValue("user_status_id", user_status_id, Types.INTEGER)
+                            .addValue("salt", salt, Types.VARCHAR)
+                            .addValue("hashed_password", hashed_password, Types.VARCHAR)
+            );
+        } catch (DataAccessException e) {
+            throw new ResultError(IDMResults.USER_ALREADY_EXISTS);}
+    }
+
+
+
+//    public List<User> searchById (Integer id)
+//    {
+//        try {
+//            // return a list
+//            List<User> users = this.template.query(
+//                    "SELECT id, email, user_status_id, salt, hashed_password" +
+//                            "FROM idm.user WHERE id = :id;",
+//                    new MapSqlParameterSource()
+//                            .addValue("id", email, Types.INTEGER),
+//                    (rs, rowNum) ->
+//                            new User()
+//                                    .setId(rs.getInt("id"))
+//                                    .setEmail(rs.getString("email"))
+//                                    .setUserStatus(UserStatus.fromId(rs.getInt("user_status_id")))
+//                                    .setSalt(rs.getString("salt"))
+//                                    .setHashedPassword(rs.getString("hashed_password"))
+//
+//            return users;
+//        )
+//        } catch (DataAccessException e) {
+//            throw new ResultError(IDMResults.USER_NOT_FOUND);}
+//    }
 }
+
+
+

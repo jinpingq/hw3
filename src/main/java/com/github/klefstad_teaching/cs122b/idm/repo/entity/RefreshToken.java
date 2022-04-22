@@ -1,11 +1,9 @@
 package com.github.klefstad_teaching.cs122b.idm.repo.entity;
 
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.type.TokenStatus;
-import org.springframework.jdbc.core.RowMapper;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.Instant;
+import java.util.Date;
 
 public class RefreshToken
 {
@@ -65,7 +63,7 @@ public class RefreshToken
         return expireTime;
     }
 
-    public RefreshToken setExpireTime(Instant expireTime)
+    public RefreshToken setExpireTime(Date expireTime)
     {
         this.expireTime = expireTime;
         return this;
@@ -76,7 +74,7 @@ public class RefreshToken
         return maxLifeTime;
     }
 
-    public RefreshToken setMaxLifeTime(Instant maxLifeTime)
+    public RefreshToken setMaxLifeTime(Date maxLifeTime)
     {
         this.maxLifeTime = maxLifeTime;
         return this;
