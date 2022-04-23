@@ -68,9 +68,10 @@ public class    IDMController
         validateEmail(request.getEmail());
         validatePassword(request.getPassword().toString());
         User user = authManager.selectAndAuthenticateUser(request.getEmail(), request.getPassword());
+        authManager.repo.insertUser(user.getEmail(), user.getUserStatus().id(), user.getSalt(), user.getHashedPassword());
         LoginResponseModel response = new LoginResponseModel();
         response.setAccessToken(jwtManager.buildAccessToken(user));
-        response.setRefreshToken(jwtManager.buildRefreshToken(user).getToken());
+        response.setRefreshToken(jwtManager.buildRefreshToken(user.getId()).getToken());
         response.setResult(IDMResults.USER_LOGGED_IN_SUCCESSFULLY);
 
         return response.toResponse();
@@ -83,7 +84,6 @@ public class    IDMController
         validateEmail(request.getEmail());
         validatePassword(request.getPassword().toString());
         authManager.createAndInsertUser(request.getEmail(), request.getPassword());
-
         RegisterResponseModel response = new RegisterResponseModel();
         response.setResult(IDMResults.USER_REGISTERED_SUCCESSFULLY);
 
@@ -106,15 +106,36 @@ public class    IDMController
         // Input validate here, throw error
         validateRefreshToken(refreshToken);
         RefreshToken token = authManager.repo.searchByRereshToken(refreshToken);
-        if (jwtManager.hasExpired(token))
+        if (token.getTokenStatus() == TokenStatus.fromId(2))
             throw new ResultError(IDMResults.REFRESH_TOKEN_IS_EXPIRED);
         // DOUBLE CHECK HERE!!!
         if (token.getTokenStatus() == TokenStatus.fromId(3))
             throw new ResultError(IDMResults.REFRESH_TOKEN_IS_REVOKED);
+        if (jwtManager.hasExpired(token) || token.getExpireTime().toInstant().isAfter(token.getMaxLifeTime().toInstant()))
+        {
+            authManager.expireRefreshToken(token);
+            throw new ResultError(IDMResults.REFRESH_TOKEN_IS_EXPIRED);
+        }
+
+        jwtManager.updateRefreshTokenExpireTime(token);
+        if (token.getExpireTime().toInstant().isAfter(token.getMaxLifeTime().toInstant()))
+        {
+            token.setTokenStatus(TokenStatus.fromId(3));
+
+            LoginResponseModel response = new LoginResponseModel();
+            response.setAccessToken(jwtManager.buildAccessToken(authManager.repo.searchById(token.getUserId())));
+            response.setRefreshToken(jwtManager.buildRefreshToken(token.getId()).getToken());
+            response.setResult(IDMResults.USER_LOGGED_IN_SUCCESSFULLY);
+
+            return response.toResponse();
+            throw new ResultError(IDMResults.)
+        }
+
+        token.setToken(jwtManager.generateUUID().toString());
         LoginResponseModel response = new LoginResponseModel();
 
         // update table
-        response.setRefreshToken(jwtManager.buildAccessToken(user))
+
         response.setResult(IDMResults.RENEWED_FROM_REFRESH_TOKEN);
 
         return response.toResponse();

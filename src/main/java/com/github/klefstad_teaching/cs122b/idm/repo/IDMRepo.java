@@ -86,7 +86,42 @@ public class IDMRepo
             throw new ResultError(IDMResults.USER_ALREADY_EXISTS);}
     }
 
-
+    public void updateRefreshTokenStatus(RefreshToken token)
+    {
+        Integer status_id = token.getTokenStatus().id();
+        Integer token_id = token.getId();
+        try {
+            // manipulate database
+            this.template.update(
+                    "UPDATE idm.refresh_token " +
+                            "SET token_status_id = :status_id WHERE id = :token_id;",
+                    new MapSqlParameterSource()
+                            .addValue("token_status_id", status_id, Types.INTEGER)
+                            .addValue("id", token_id, Types.INTEGER)
+                    // do I need to add more values ??
+            );
+        } catch (DataAccessException e) {
+            throw new ResultError(IDMResults.USER_ALREADY_EXISTS);}
+    }
+    public User searchById(Integer id) {
+        try {
+            // expect return only one row
+            User user = this.template.queryForObject(
+                    "SELECT id, email, user_status_id, salt, hashed_password FROM idm.user WHERE id = :id;",
+                    new MapSqlParameterSource()
+                            .addValue("id", id, Types.INTEGER),
+                    (rs, rowNum) ->
+                            new User()
+                                    .setId(rs.getInt("id"))
+                                    .setEmail(rs.getString("email"))
+                                    .setUserStatus(UserStatus.fromId(rs.getInt("user_status_id")))
+                                    .setSalt(rs.getString("salt"))
+                                    .setHashedPassword(rs.getString("hashed_password")));
+            return user;
+        } catch (DataAccessException e) {
+            throw new ResultError(IDMResults.USER_NOT_FOUND);
+        }
+    }
 
 //    public List<User> searchById (Integer id)
 //    {

@@ -2,7 +2,6 @@ package com.github.klefstad_teaching.cs122b.idm.repo.entity;
 
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.type.TokenStatus;
 
-import java.time.Instant;
 import java.util.Date;
 
 public class RefreshToken
@@ -11,8 +10,8 @@ public class RefreshToken
     private String      token;
     private Integer     userId;
     private TokenStatus tokenStatus;
-    private Instant     expireTime;
-    private Instant     maxLifeTime;
+    private Date     expireTime;
+    private Date     maxLifeTime;
 
     public Integer getId()
     {
@@ -58,18 +57,18 @@ public class RefreshToken
         return this;
     }
 
-    public Instant getExpireTime()
+    public Date getExpireTime()
     {
         return expireTime;
     }
-
+// Date - Instant
     public RefreshToken setExpireTime(Date expireTime)
     {
         this.expireTime = expireTime;
         return this;
     }
 
-    public Instant getMaxLifeTime()
+    public Date getMaxLifeTime()
     {
         return maxLifeTime;
     }

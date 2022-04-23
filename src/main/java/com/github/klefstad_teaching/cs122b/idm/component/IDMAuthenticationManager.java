@@ -7,7 +7,6 @@ import com.github.klefstad_teaching.cs122b.idm.repo.entity.RefreshToken;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.User;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.type.TokenStatus;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -69,7 +68,7 @@ public class IDMAuthenticationManager
     {
         User user = repo.searchByEmail(email);
 
-        if (! user.getHashedPassword().equals(hashPassword(password, user.getSalt()))  )
+        if (! user.getHashedPassword().equals(Base64.getEncoder().encodeToString(hashPassword(password, user.getSalt())))  )
             throw new ResultError(IDMResults.INVALID_CREDENTIALS);
         return user;
     }
@@ -92,25 +91,18 @@ public class IDMAuthenticationManager
 
     public void updateRefreshTokenExpireTime(RefreshToken refreshToken)
     {
-        this.repo.getTemplate().update(
-                "INSERT INTO idm.refresh_token (token, user_id, token_status_id, expire_time, max_life_time)" +
-                        "VALUE (:token, :userId, :tokenStatus, :expireTime, :maxLifeTime",
-                new MapSqlParameterSource()
-                        .addValue("token", refreshToken.getToken(), java.sql.Types.VARCHAR)
-                        .addValue("userId", refreshToken.getUserId(), java.sql.Types.INTEGER)
-                        .addValue("tokenStatus", refreshToken.getTokenStatus().id(), java.sql.Types.INTEGER)
-                        .addValue("expireTime", refreshToken.getExpireTime(), java.sql.Types.TIMESTAMP)
-                        .addValue("maxLifeTime", refreshToken.getMaxLifeTime(), java.sql.Types.TIMESTAMP)
-        );
+        this.repo.updateRefreshToken(refreshToken);
     }
 
     public void expireRefreshToken(RefreshToken token)
     {
         token.setTokenStatus(TokenStatus.fromId(2));
+        repo.updateRefreshTokenStatus(token);
     }
 
     public void revokeRefreshToken(RefreshToken token)
     {
+
         token.setTokenStatus(TokenStatus.fromId(3));
     }
 

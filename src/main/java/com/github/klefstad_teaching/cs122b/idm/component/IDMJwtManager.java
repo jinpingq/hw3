@@ -92,11 +92,11 @@ public class IDMJwtManager
         }
     }
 
-    public RefreshToken buildRefreshToken(User user)
+    public RefreshToken buildRefreshToken(Integer user_id)
     {
         RefreshToken refreshToken = new RefreshToken()
                 .setToken(generateUUID().toString())
-                .setUserId(user.getId())
+                .setUserId(user_id)
                 .setTokenStatus(TokenStatus.fromId(1))
                 .setExpireTime(
                         Date.from(Instant.now().plus(this.jwtManager.getRefreshTokenExpire())))
@@ -107,7 +107,7 @@ public class IDMJwtManager
 
     public boolean hasExpired(RefreshToken refreshToken)
     {
-        return (Instant.now().isAfter(refreshToken.getExpireTime()));
+        return (Instant.now().isAfter(refreshToken.getExpireTime().toInstant()));
     }
 
     public boolean needsRefresh(RefreshToken refreshToken)
@@ -121,7 +121,7 @@ public class IDMJwtManager
                 Date.from(Instant.now().plus(this.jwtManager.getRefreshTokenExpire())));
     }
 
-    private UUID generateUUID()
+    public UUID generateUUID()
     {
         return UUID.randomUUID();
     }
