@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.sql.Types;
+import java.util.Date;
 
 @Component
 public class IDMRepo
@@ -86,23 +87,27 @@ public class IDMRepo
             throw new ResultError(IDMResults.USER_ALREADY_EXISTS);}
     }
 
-    public void updateRefreshTokenStatus(RefreshToken token)
+    public void updateRefreshToken(RefreshToken token)
     {
         Integer status_id = token.getTokenStatus().id();
         Integer token_id = token.getId();
+        Date expire_time = token.getExpireTime();
         try {
             // manipulate database
             this.template.update(
                     "UPDATE idm.refresh_token " +
-                            "SET token_status_id = :status_id WHERE id = :token_id;",
+                            "SET token_status_id = :status_id, expire_time = :expire_time WHERE id = :token_id;",
                     new MapSqlParameterSource()
                             .addValue("token_status_id", status_id, Types.INTEGER)
                             .addValue("id", token_id, Types.INTEGER)
+                            .addValue("expire_time", expire_time, Types.DATE)
                     // do I need to add more values ??
             );
         } catch (DataAccessException e) {
-            throw new ResultError(IDMResults.USER_ALREADY_EXISTS);}
+            throw new ResultError(IDMResults.REFRESH_TOKEN_NOT_FOUND);}
     }
+
+
     public User searchById(Integer id) {
         try {
             // expect return only one row

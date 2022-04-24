@@ -101,7 +101,7 @@ public class    IDMController
         }
     }
     @PostMapping("/refresh")
-    public ResponseEntity<RegisterResponseModel> refresh(
+    public ResponseEntity<LoginResponseModel> refresh(
             @RequestParam("refreshToken")String refreshToken) throws BadJOSEException, JOSEException {
         // Input validate here, throw error
         validateRefreshToken(refreshToken);
@@ -116,26 +116,22 @@ public class    IDMController
             authManager.expireRefreshToken(token);
             throw new ResultError(IDMResults.REFRESH_TOKEN_IS_EXPIRED);
         }
-
+        // Update expire time
         jwtManager.updateRefreshTokenExpireTime(token);
+        LoginResponseModel response = new LoginResponseModel();
+        response.setAccessToken(jwtManager.buildAccessToken(authManager.repo.searchById(token.getUserId())));
         if (token.getExpireTime().toInstant().isAfter(token.getMaxLifeTime().toInstant()))
         {
-            token.setTokenStatus(TokenStatus.fromId(3));
-
-            LoginResponseModel response = new LoginResponseModel();
-            response.setAccessToken(jwtManager.buildAccessToken(authManager.repo.searchById(token.getUserId())));
+            // revoke
+            authManager.revokeRefreshToken(token);
             response.setRefreshToken(jwtManager.buildRefreshToken(token.getId()).getToken());
-            response.setResult(IDMResults.USER_LOGGED_IN_SUCCESSFULLY);
-
+            response.setResult(IDMResults.RENEWED_FROM_REFRESH_TOKEN);
             return response.toResponse();
-            throw new ResultError(IDMResults.)
         }
 
-        token.setToken(jwtManager.generateUUID().toString());
-        LoginResponseModel response = new LoginResponseModel();
-
         // update table
-
+        authManager.updateRefreshTokenExpireTime(token); // repo
+        response.setRefreshToken(token.getToken());
         response.setResult(IDMResults.RENEWED_FROM_REFRESH_TOKEN);
 
         return response.toResponse();

@@ -89,21 +89,21 @@ public class IDMAuthenticationManager
         return null;
     }
 
-    public void updateRefreshTokenExpireTime(RefreshToken refreshToken)
+    public void updateRefreshTokenExpireTime(RefreshToken token)
     {
-        this.repo.updateRefreshToken(refreshToken);
+        this.repo.updateRefreshToken(token);
     }
 
     public void expireRefreshToken(RefreshToken token)
     {
         token.setTokenStatus(TokenStatus.fromId(2));
-        repo.updateRefreshTokenStatus(token);
+        repo.updateRefreshToken(token);
     }
 
     public void revokeRefreshToken(RefreshToken token)
     {
-
         token.setTokenStatus(TokenStatus.fromId(3));
+        repo.updateRefreshToken(token);
     }
 
     public User getUserFromRefreshToken(RefreshToken refreshToken)
