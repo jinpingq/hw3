@@ -1,5 +1,7 @@
 package com.github.klefstad_teaching.cs122b.idm.component;
 
+import com.github.klefstad_teaching.cs122b.core.error.ResultError;
+import com.github.klefstad_teaching.cs122b.core.result.IDMResults;
 import com.github.klefstad_teaching.cs122b.core.security.JWTManager;
 import com.github.klefstad_teaching.cs122b.idm.config.IDMServiceConfig;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.RefreshToken;
@@ -87,8 +89,8 @@ public class IDMJwtManager
             jwtManager.getJwtProcessor().process(rebuiltSignedJwt, null);
             rebuiltSignedJwt.getJWTClaimsSet().getExpirationTime();
         } catch (IllegalStateException | JOSEException | BadJOSEException | ParseException e) {
-            e.printStackTrace();
-            // Throw some result error?
+//            e.printStackTrace();
+            throw new ResultError(IDMResults.ACCESS_TOKEN_IS_INVALID);
         }
     }
 
@@ -110,6 +112,7 @@ public class IDMJwtManager
         return (Instant.now().isAfter(refreshToken.getExpireTime().toInstant()));
     }
 
+    // what this function for ??
     public boolean needsRefresh(RefreshToken refreshToken)
     {
         return false;

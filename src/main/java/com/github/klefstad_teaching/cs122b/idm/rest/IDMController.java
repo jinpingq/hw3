@@ -5,6 +5,7 @@ import com.github.klefstad_teaching.cs122b.core.result.IDMResults;
 import com.github.klefstad_teaching.cs122b.idm.component.IDMAuthenticationManager;
 import com.github.klefstad_teaching.cs122b.idm.component.IDMJwtManager;
 import com.github.klefstad_teaching.cs122b.idm.model.request.LoginRequestModel;
+import com.github.klefstad_teaching.cs122b.idm.model.response.AuthenticateResponseModel;
 import com.github.klefstad_teaching.cs122b.idm.model.response.LoginResponseModel;
 import com.github.klefstad_teaching.cs122b.idm.model.response.RegisterResponseModel;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.RefreshToken;
@@ -42,22 +43,16 @@ public class    IDMController
     // all input, output, result
     private void validateEmail(String email)
     {
-        String ePattern = "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
-        java.util.regex.Pattern p = java.util.regex.Pattern.compile(ePattern);
-        java.util.regex.Matcher m = p.matcher(email);
-        if (! m.matches())
+        if (! Pattern.matches("[A-Za-z0-9]+@[A-Za-z0-9]+\\.[A-Za-z0-9]+", email))
             throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_CHARACTER_REQUIREMENT);
-        if (! Pattern.matches("[a-zA-Z0-9]|[@]|[.]{6,32}", email))
+        if (email.length() > 32 || email.length() < 6)
             throw new ResultError(IDMResults.EMAIL_ADDRESS_HAS_INVALID_LENGTH);
     }
     private void validatePassword(String password)
     {
-        String ePattern = "^[A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
-        java.util.regex.Pattern p = java.util.regex.Pattern.compile(ePattern);
-        java.util.regex.Matcher m = p.matcher(password);
-        if (! m.matches())
+        if (! Pattern.matches("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])$", password))
             throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_CHARACTER_REQUIREMENT);
-        if (! Pattern.matches("[a-zA-Z0-9]{10,20}", password))
+        if (password.length() > 20 || password.length() < 10)
             throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_LENGTH_REQUIREMENTS);
     }
 
@@ -105,7 +100,7 @@ public class    IDMController
             @RequestParam("refreshToken")String refreshToken) throws BadJOSEException, JOSEException {
         // Input validate here, throw error
         validateRefreshToken(refreshToken);
-        RefreshToken token = authManager.repo.searchByRereshToken(refreshToken);
+        RefreshToken token = authManager.verifyRefreshToken(refreshToken);
         if (token.getTokenStatus() == TokenStatus.fromId(2))
             throw new ResultError(IDMResults.REFRESH_TOKEN_IS_EXPIRED);
         // DOUBLE CHECK HERE!!!
@@ -137,4 +132,15 @@ public class    IDMController
         return response.toResponse();
     }
 
+    @PostMapping("/authenticate")
+    public ResponseEntity<LoginResponseModel> authenticate(
+            @RequestParam("accessToken")String accessToken) throws BadJOSEException, JOSEException {
+        jwtManager.verifyAccessToken(accessToken);
+
+        // where find access token's status, retrieve the DB ??
+        AuthenticateResponseModel response = new AuthenticateResponseModel();
+        response.setAccessToken(accessToken);
+        response.setResult(IDMResults.ACCESS_TOKEN_IS_VALID);
+        return response.toResponse();
+    }
 }

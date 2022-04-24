@@ -16,6 +16,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
+import java.util.UUID;
 
 @Component
 public class IDMAuthenticationManager
@@ -86,7 +87,15 @@ public class IDMAuthenticationManager
 
     public RefreshToken verifyRefreshToken(String token)
     {
-        return null;
+        if (token.length() != 36)
+            throw new ResultError(IDMResults.REFRESH_TOKEN_HAS_INVALID_LENGTH);
+        try{
+            UUID uuid = UUID.fromString(token);
+        } catch (IllegalArgumentException e){
+            throw new ResultError(IDMResults.REFRESH_TOKEN_HAS_INVALID_FORMAT);
+        }
+        RefreshToken refreshToken = this.repo.searchByRereshToken(token);
+        return refreshToken;
     }
 
     public void updateRefreshTokenExpireTime(RefreshToken token)
@@ -97,19 +106,18 @@ public class IDMAuthenticationManager
     public void expireRefreshToken(RefreshToken token)
     {
         token.setTokenStatus(TokenStatus.fromId(2));
-        repo.updateRefreshToken(token);
+        this.repo.updateRefreshToken(token);
     }
 
     public void revokeRefreshToken(RefreshToken token)
     {
         token.setTokenStatus(TokenStatus.fromId(3));
-        repo.updateRefreshToken(token);
+        this.repo.updateRefreshToken(token);
     }
 
     public User getUserFromRefreshToken(RefreshToken refreshToken)
     {
         Integer userId = refreshToken.getUserId();
-
-        return null;
+        return this.repo.searchById(userId);
     }
 }
