@@ -90,12 +90,12 @@ public class IDMAuthenticationManager
         if (token.length() != 36)
             throw new ResultError(IDMResults.REFRESH_TOKEN_HAS_INVALID_LENGTH);
         try{
-            UUID uuid = UUID.fromString(token);
+            UUID.fromString(token);
         } catch (IllegalArgumentException e){
             throw new ResultError(IDMResults.REFRESH_TOKEN_HAS_INVALID_FORMAT);
         }
-        RefreshToken refreshToken = this.repo.searchByRereshToken(token);
-        return refreshToken;
+
+        return this.repo.searchByRereshToken(token);
     }
 
     public void updateRefreshTokenExpireTime(RefreshToken token)

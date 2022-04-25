@@ -5,6 +5,7 @@ import com.github.klefstad_teaching.cs122b.core.result.IDMResults;
 import com.github.klefstad_teaching.cs122b.idm.component.IDMAuthenticationManager;
 import com.github.klefstad_teaching.cs122b.idm.component.IDMJwtManager;
 import com.github.klefstad_teaching.cs122b.idm.model.request.LoginRequestModel;
+import com.github.klefstad_teaching.cs122b.idm.model.request.RefreshRequestModel;
 import com.github.klefstad_teaching.cs122b.idm.model.response.AuthenticateResponseModel;
 import com.github.klefstad_teaching.cs122b.idm.model.response.LoginResponseModel;
 import com.github.klefstad_teaching.cs122b.idm.model.response.RegisterResponseModel;
@@ -18,12 +19,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.sql.Timestamp;
 import java.util.UUID;
 import java.util.regex.Pattern;
-
+// line 140
 @RestController
 public class    IDMController
 {
@@ -62,11 +63,18 @@ public class    IDMController
         // Input validate here, throw error
         validateEmail(request.getEmail());
         validatePassword(request.getPassword().toString());
+
         User user = authManager.selectAndAuthenticateUser(request.getEmail(), request.getPassword());
-        authManager.repo.insertUser(user.getEmail(), user.getUserStatus().id(), user.getSalt(), user.getHashedPassword());
+
+        // where to store accessToken and expired time ? ?
+        String accessToken = jwtManager.buildAccessToken(user);
+        RefreshToken refreshToken = jwtManager.buildRefreshToken(user.getId());
+
+        // ?? casting Date to timestamp ? ?
+        authManager.repo.insertRefreshToken(refreshToken.getToken(), user.getId(), refreshToken.getTokenStatus().id(), (Timestamp) refreshToken.getExpireTime(), (Timestamp) refreshToken.getMaxLifeTime());
         LoginResponseModel response = new LoginResponseModel();
-        response.setAccessToken(jwtManager.buildAccessToken(user));
-        response.setRefreshToken(jwtManager.buildRefreshToken(user.getId()).getToken());
+        response.setAccessToken(accessToken);
+        response.setRefreshToken(refreshToken.getToken());
         response.setResult(IDMResults.USER_LOGGED_IN_SUCCESSFULLY);
 
         return response.toResponse();
@@ -97,10 +105,11 @@ public class    IDMController
     }
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponseModel> refresh(
-            @RequestParam("refreshToken")String refreshToken) throws BadJOSEException, JOSEException {
+            @RequestBody RefreshRequestModel request) throws BadJOSEException, JOSEException {
         // Input validate here, throw error
-        validateRefreshToken(refreshToken);
-        RefreshToken token = authManager.verifyRefreshToken(refreshToken);
+
+        validateRefreshToken(request.getRefreshToken());
+        RefreshToken token = authManager.verifyRefreshToken(request.getRefreshToken());
         if (token.getTokenStatus() == TokenStatus.fromId(2))
             throw new ResultError(IDMResults.REFRESH_TOKEN_IS_EXPIRED);
         // DOUBLE CHECK HERE!!!
@@ -114,12 +123,14 @@ public class    IDMController
         // Update expire time
         jwtManager.updateRefreshTokenExpireTime(token);
         LoginResponseModel response = new LoginResponseModel();
-        response.setAccessToken(jwtManager.buildAccessToken(authManager.repo.searchById(token.getUserId())));
+        response.setAccessToken(jwtManager.buildAccessToken(authManager.getUserFromRefreshToken(token)));
         if (token.getExpireTime().toInstant().isAfter(token.getMaxLifeTime().toInstant()))
         {
             // revoke
             authManager.revokeRefreshToken(token);
-            response.setRefreshToken(jwtManager.buildRefreshToken(token.getId()).getToken());
+            RefreshToken new_token = jwtManager.buildRefreshToken(token.getId());
+            authManager.updateRefreshTokenExpireTime(token);
+            response.setRefreshToken(new_token.getToken());
             response.setResult(IDMResults.RENEWED_FROM_REFRESH_TOKEN);
             return response.toResponse();
         }
@@ -134,12 +145,12 @@ public class    IDMController
 
     @PostMapping("/authenticate")
     public ResponseEntity<LoginResponseModel> authenticate(
-            @RequestParam("accessToken")String accessToken) throws BadJOSEException, JOSEException {
-        jwtManager.verifyAccessToken(accessToken);
+            @RequestBody AuthenticateResponseModel request) throws BadJOSEException, JOSEException {
+        jwtManager.verifyAccessToken(request.getAccessToken());
 
         // where find access token's status, retrieve the DB ??
         AuthenticateResponseModel response = new AuthenticateResponseModel();
-        response.setAccessToken(accessToken);
+        response.setAccessToken(request.getAccessToken());
         response.setResult(IDMResults.ACCESS_TOKEN_IS_VALID);
         return response.toResponse();
     }

@@ -93,7 +93,7 @@ public class IDMJwtManager
             throw new ResultError(IDMResults.ACCESS_TOKEN_IS_INVALID);
         }
     }
-
+     //chang User to user_id, only need user_id or we need retrieve user DB to get whole user object
     public RefreshToken buildRefreshToken(Integer user_id)
     {
         RefreshToken refreshToken = new RefreshToken()
