@@ -71,7 +71,7 @@ public class    IDMController
         RefreshToken refreshToken = jwtManager.buildRefreshToken(user.getId());
 
         // ?? casting Date to timestamp ? ?
-        authManager.repo.insertRefreshToken(refreshToken.getToken(), user.getId(), refreshToken.getTokenStatus().id(), (Timestamp) refreshToken.getExpireTime(), (Timestamp) refreshToken.getMaxLifeTime());
+        authManager.repo.insertRefreshToken(refreshToken);
         LoginResponseModel response = new LoginResponseModel();
         response.setAccessToken(accessToken);
         response.setRefreshToken(refreshToken.getToken());

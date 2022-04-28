@@ -12,7 +12,6 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Date;
 
@@ -87,19 +86,19 @@ public class IDMRepo
         } catch (DataAccessException e) {
             throw new ResultError(IDMResults.USER_ALREADY_EXISTS);}
     }
-    public void insertRefreshToken(String token, Integer user_id, Integer token_status_id, Timestamp expire_time, Timestamp max_life_time)
+    public void insertRefreshToken(RefreshToken refreshToken)
     {
         try {
             // manipulate database
             this.template.update(
                     "INSERT INTO idm.refresh_token (token, user_id, token_status_id, expire_time, max_life_time)" +
-                            "VALUES (:token, :user_id, :token_status_id, expire_time, :max_life_time);",
+                            "VALUES (:token, :user_id, :token_status_id, :expire_time, :max_life_time);",
                     new MapSqlParameterSource()
-                            .addValue("token", token, Types.VARCHAR)
-                            .addValue("user_id", user_id, Types.INTEGER)
-                            .addValue("token_status_id", token_status_id, Types.INTEGER)
-                            .addValue("expire_time", expire_time, Types.TIMESTAMP)
-                            .addValue("max_life_time", max_life_time, Types.TIMESTAMP)
+                            .addValue("token", refreshToken.getToken(), Types.VARCHAR)
+                            .addValue("user_id", refreshToken.getUserId(), Types.INTEGER)
+                            .addValue("token_status_id", refreshToken.getTokenStatus().id(), Types.INTEGER)
+                            .addValue("expire_time", refreshToken.getExpireTime(), Types.TIMESTAMP)
+                            .addValue("max_life_time", refreshToken.getMaxLifeTime(), Types.TIMESTAMP)
             );
         } catch (DataAccessException e) {
             throw new ResultError(IDMResults.USER_ALREADY_EXISTS);}
