@@ -12,6 +12,7 @@ import com.github.klefstad_teaching.cs122b.idm.model.response.RegisterResponseMo
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.RefreshToken;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.User;
 import com.github.klefstad_teaching.cs122b.idm.repo.entity.type.TokenStatus;
+import com.github.klefstad_teaching.cs122b.idm.repo.entity.type.UserStatus;
 import com.github.klefstad_teaching.cs122b.idm.util.Validate;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.proc.BadJOSEException;
@@ -21,8 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.sql.Timestamp;
-import java.util.UUID;
+import java.time.Instant;
 import java.util.regex.Pattern;
 // line 140
 @RestController
@@ -44,17 +44,36 @@ public class    IDMController
     // all input, output, result
     private void validateEmail(String email)
     {
-        if (! Pattern.matches("[A-Za-z0-9]+@[A-Za-z0-9]+\\.[A-Za-z0-9]+", email))
-            throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_CHARACTER_REQUIREMENT);
         if (email.length() > 32 || email.length() < 6)
             throw new ResultError(IDMResults.EMAIL_ADDRESS_HAS_INVALID_LENGTH);
+
+        if (! Pattern.matches("[A-Za-z0-9]+@[A-Za-z0-9]+\\.[A-Za-z0-9]+", email))
+            throw new ResultError(IDMResults.EMAIL_ADDRESS_HAS_INVALID_FORMAT);
+
     }
     private void validatePassword(String password)
     {
-        if (! Pattern.matches("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])$", password))
-            throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_CHARACTER_REQUIREMENT);
         if (password.length() > 20 || password.length() < 10)
-            throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_LENGTH_REQUIREMENTS);
+        throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_LENGTH_REQUIREMENTS);
+        if (! Pattern.matches("^[a-zA-Z0-9]+$", password))
+            throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_CHARACTER_REQUIREMENT);
+        boolean hasUpperCase = false;
+        boolean hasLowerCase = false;
+        boolean hasNumberCase = false;
+        for (char c: password.toCharArray()){
+            if (c >= 'A' && c <= 'Z'){
+                hasUpperCase = true;
+            }
+            else if (c >= 'a' && c <= 'z'){
+                hasLowerCase = true;
+            }
+            else if (c >= '0' && c <= '9'){
+                hasNumberCase = true;
+            }
+        }
+        if (!hasUpperCase || !hasLowerCase || !hasNumberCase)
+            throw new ResultError(IDMResults.PASSWORD_DOES_NOT_MEET_CHARACTER_REQUIREMENT);
+
     }
 
     @PostMapping("/login")
@@ -62,17 +81,22 @@ public class    IDMController
             @RequestBody LoginRequestModel request) throws BadJOSEException, JOSEException {
         // Input validate here, throw error
         validateEmail(request.getEmail());
-        validatePassword(request.getPassword().toString());
+        String string = new String(request.getPassword());
+        validatePassword(string);
 
         User user = authManager.selectAndAuthenticateUser(request.getEmail(), request.getPassword());
-
+        LoginResponseModel response = new LoginResponseModel();
+        if (user.getUserStatus() == UserStatus.fromId(3))
+            throw new ResultError((IDMResults.USER_IS_BANNED));
+        if (user.getUserStatus() == UserStatus.fromId(2))
+            throw new ResultError((IDMResults.USER_IS_LOCKED));
         // where to store accessToken and expired time ? ?
         String accessToken = jwtManager.buildAccessToken(user);
         RefreshToken refreshToken = jwtManager.buildRefreshToken(user.getId());
 
         // ?? casting Date to timestamp ? ?
         authManager.repo.insertRefreshToken(refreshToken);
-        LoginResponseModel response = new LoginResponseModel();
+
         response.setAccessToken(accessToken);
         response.setRefreshToken(refreshToken.getToken());
         response.setResult(IDMResults.USER_LOGGED_IN_SUCCESSFULLY);
@@ -85,7 +109,8 @@ public class    IDMController
             @RequestBody LoginRequestModel request) throws BadJOSEException, JOSEException {
         // Input validate here, throw error
         validateEmail(request.getEmail());
-        validatePassword(request.getPassword().toString());
+        String string = new String(request.getPassword());
+        validatePassword(string);
         authManager.createAndInsertUser(request.getEmail(), request.getPassword());
         RegisterResponseModel response = new RegisterResponseModel();
         response.setResult(IDMResults.USER_REGISTERED_SUCCESSFULLY);
@@ -93,43 +118,36 @@ public class    IDMController
         return response.toResponse();
     }
 
-    private void validateRefreshToken(String token)
-    {
-        if (token.length() != 36)
-            throw new ResultError(IDMResults.REFRESH_TOKEN_HAS_INVALID_LENGTH);
-        try{
-            UUID uuid = UUID.fromString(token);
-        } catch (IllegalArgumentException e){
-            throw new ResultError(IDMResults.REFRESH_TOKEN_HAS_INVALID_FORMAT);
-        }
-    }
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponseModel> refresh(
             @RequestBody RefreshRequestModel request) throws BadJOSEException, JOSEException {
         // Input validate here, throw error
 
-        validateRefreshToken(request.getRefreshToken());
         RefreshToken token = authManager.verifyRefreshToken(request.getRefreshToken());
-        if (token.getTokenStatus() == TokenStatus.fromId(2))
+        if (token.getTokenStatus() == TokenStatus.fromId(2)){
             throw new ResultError(IDMResults.REFRESH_TOKEN_IS_EXPIRED);
-        // DOUBLE CHECK HERE!!!
+        }
+
         if (token.getTokenStatus() == TokenStatus.fromId(3))
             throw new ResultError(IDMResults.REFRESH_TOKEN_IS_REVOKED);
-        if (jwtManager.hasExpired(token) || token.getExpireTime().toInstant().isAfter(token.getMaxLifeTime().toInstant()))
+
+        if (jwtManager.hasExpired(token))
         {
             authManager.expireRefreshToken(token);
+            System.out.println("CURRENT TIME: " + Instant.now());
+            System.out.println("EXPIRE TIME: " + token.getExpireTime());
             throw new ResultError(IDMResults.REFRESH_TOKEN_IS_EXPIRED);
         }
         // Update expire time
         jwtManager.updateRefreshTokenExpireTime(token);
         LoginResponseModel response = new LoginResponseModel();
         response.setAccessToken(jwtManager.buildAccessToken(authManager.getUserFromRefreshToken(token)));
-        if (token.getExpireTime().toInstant().isAfter(token.getMaxLifeTime().toInstant()))
+        if (token.getExpireTime().isAfter(token.getMaxLifeTime()))
         {
             // revoke
             authManager.revokeRefreshToken(token);
             RefreshToken new_token = jwtManager.buildRefreshToken(token.getId());
-            authManager.updateRefreshTokenExpireTime(token);
+            authManager.repo.insertRefreshToken(new_token);
             response.setRefreshToken(new_token.getToken());
             response.setResult(IDMResults.RENEWED_FROM_REFRESH_TOKEN);
             return response.toResponse();

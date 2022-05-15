@@ -83,15 +83,19 @@ public class IDMJwtManager
 
     public void verifyAccessToken(String jws)
     {
+
         try {
             SignedJWT rebuiltSignedJwt = SignedJWT.parse(jws);
             rebuiltSignedJwt.verify(jwtManager.getVerifier());
             jwtManager.getJwtProcessor().process(rebuiltSignedJwt, null);
-            rebuiltSignedJwt.getJWTClaimsSet().getExpirationTime();
+            Date expireTime = rebuiltSignedJwt.getJWTClaimsSet().getExpirationTime();
+            if (Instant.now().isAfter(expireTime.toInstant()))
+                throw new ResultError(IDMResults.ACCESS_TOKEN_IS_EXPIRED);
         } catch (IllegalStateException | JOSEException | BadJOSEException | ParseException e) {
 //            e.printStackTrace();
             throw new ResultError(IDMResults.ACCESS_TOKEN_IS_INVALID);
         }
+
     }
      //chang User to user_id, only need user_id or we need retrieve user DB to get whole user object
     public RefreshToken buildRefreshToken(Integer user_id)
@@ -101,15 +105,18 @@ public class IDMJwtManager
                 .setUserId(user_id)
                 .setTokenStatus(TokenStatus.fromId(1))
                 .setExpireTime(
-                        Date.from(Instant.now().plus(this.jwtManager.getRefreshTokenExpire())))
+                        Instant.now().plus(this.jwtManager.getRefreshTokenExpire()))
                 .setMaxLifeTime(
-                        Date.from(Instant.now().plus(this.jwtManager.getMaxRefreshTokenLifeTime())));
+                        Instant.now().plus(this.jwtManager.getMaxRefreshTokenLifeTime()));
         return refreshToken;
     }
 
     public boolean hasExpired(RefreshToken refreshToken)
     {
-        return (Instant.now().isAfter(refreshToken.getExpireTime().toInstant()));
+        Instant now = Instant.now();
+        return ((now.isAfter(refreshToken.getExpireTime())) ||
+                now.isAfter(refreshToken.getMaxLifeTime()));
+
     }
 
     // what this function for ??
@@ -121,7 +128,7 @@ public class IDMJwtManager
     public void updateRefreshTokenExpireTime(RefreshToken refreshToken)
     {
         refreshToken.setExpireTime(
-                Date.from(Instant.now().plus(this.jwtManager.getRefreshTokenExpire())));
+                Instant.now().plus(this.jwtManager.getRefreshTokenExpire()));
     }
 
     public UUID generateUUID()
